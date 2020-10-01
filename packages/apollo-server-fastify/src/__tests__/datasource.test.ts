@@ -1,11 +1,8 @@
-import fastify, { FastifyInstance } from 'fastify';
-
 import { RESTDataSource } from 'apollo-datasource-rest';
-
 import { createApolloFetch } from 'apollo-fetch';
-import { ApolloServer } from '../ApolloServer';
-
 import { createServerInfo } from 'apollo-server-integration-testsuite';
+import fastify, { FastifyInstance } from 'fastify';
+import { ApolloServer } from '../ApolloServer';
 import { gql } from '../index';
 
 const restPort = 4003;
@@ -68,7 +65,7 @@ describe('apollo-server-fastify', () => {
   });
 
   afterAll(async () => {
-    await new Promise(resolve => restServer.close(() => resolve()));
+    await new Promise((resolve) => restServer.close(() => resolve()));
   });
 
   let server: ApolloServer;
@@ -79,7 +76,7 @@ describe('apollo-server-fastify', () => {
 
   afterEach(async () => {
     await server.stop();
-    await new Promise(resolve => app.close(() => resolve()));
+    await new Promise((resolve) => app.close(() => resolve()));
   });
 
   it('uses the cache', async () => {

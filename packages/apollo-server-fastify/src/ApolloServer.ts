@@ -4,14 +4,14 @@ import {
   ApolloServerBase,
   FileUploadOptions,
   formatApolloErrors,
+  GraphQLOptions,
   PlaygroundRenderPageOptions,
   processFileUploads,
-  GraphQLOptions,
 } from 'apollo-server-core';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { IncomingMessage, OutgoingMessage, ServerResponse, Server } from 'http';
-import { graphqlFastify } from './fastifyApollo';
 import { GraphQLOperation } from 'graphql-upload';
+import { IncomingMessage, Server, ServerResponse } from 'http';
+import { graphqlFastify } from './fastifyApollo';
 
 const kMultipart = Symbol('multipart');
 const fastJson = require('fast-json-stringify');
@@ -19,7 +19,7 @@ const fastJson = require('fast-json-stringify');
 export interface ServerRegistration {
   path?: string;
   cors?: object | boolean;
-  onHealthCheck?: (req: FastifyRequest<IncomingMessage>) => Promise<any>;
+  onHealthCheck?: (req: FastifyRequest) => Promise<any>;
   disableHealthCheck?: boolean;
 }
 
@@ -36,15 +36,15 @@ const fileUploadMiddleware = (
   uploadsConfig: FileUploadOptions,
   server: ApolloServerBase,
 ) => (
-  req: FastifyRequest<IncomingMessage>,
-  reply: FastifyReply<ServerResponse>,
+  req: FastifyRequest,
+  reply: FastifyReply,
   done: (err: Error | null, body?: any) => void,
 ) => {
   if (
-    (req.req as any)[kMultipart] &&
+    (req.raw as any)[kMultipart] &&
     typeof processFileUploads === 'function'
   ) {
-    processFileUploads(req.req, reply.res, uploadsConfig)
+    processFileUploads(req.raw, reply.raw, uploadsConfig)
       .then((body: GraphQLOperation | GraphQLOperation[]) => {
         req.body = body;
         done(null);
@@ -72,10 +72,10 @@ export class ApolloServer extends ApolloServerBase {
   }
 
   async createGraphQLServerOptions(
-    request?: FastifyRequest<IncomingMessage>,
-    reply?: FastifyReply<OutgoingMessage>,
+    request?: FastifyRequest,
+    reply?: FastifyReply,
   ): Promise<GraphQLOptions> {
-     return this.graphQLServerOptions({ request, reply });
+    return this.graphQLServerOptions({ request, reply });
   }
 
   public createHandler({
@@ -111,7 +111,7 @@ export class ApolloServer extends ApolloServerBase {
       }
 
       app.register(
-        async instance => {
+        async (instance) => {
           instance.register(require('fastify-accepts'));
 
           if (cors === true) {
@@ -127,11 +127,7 @@ export class ApolloServer extends ApolloServerBase {
           });
 
           const beforeHandlers = [
-            (
-              req: FastifyRequest<IncomingMessage>,
-              reply: FastifyReply<ServerResponse>,
-              done: () => void,
-            ) => {
+            (req: FastifyRequest, reply: FastifyReply, done: () => void) => {
               // Note: if you enable playground in production and expect to be able to see your
               // schema, you'll need to manually specify `introspection: true` in the
               // ApolloServer constructor; by default, the introspection query is only
@@ -167,12 +163,14 @@ export class ApolloServer extends ApolloServerBase {
           if (typeof processFileUploads === 'function' && this.uploadsConfig) {
             instance.addContentTypeParser(
               'multipart',
+              { parseAs: 'buffer' },
               (
-                request: IncomingMessage,
+                request: FastifyRequest,
+                rawBody: string | Buffer,
                 done: (err: Error | null, body?: any) => void,
               ) => {
                 (request as any)[kMultipart] = true;
-                done(null);
+                done(null, rawBody);
               },
             );
             beforeHandlers.push(fileUploadMiddleware(this.uploadsConfig, this));
@@ -181,8 +179,10 @@ export class ApolloServer extends ApolloServerBase {
           instance.route({
             method: ['GET', 'POST'],
             url: '/',
-            beforeHandler: beforeHandlers,
-            handler: await graphqlFastify(this.createGraphQLServerOptions.bind(this)),
+            preHandler: beforeHandlers,
+            handler: await graphqlFastify(
+              this.createGraphQLServerOptions.bind(this),
+            ),
           });
         },
         {

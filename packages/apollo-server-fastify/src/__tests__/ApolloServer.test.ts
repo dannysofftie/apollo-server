@@ -1,21 +1,20 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import fastify from 'fastify';
-
-import http, { IncomingMessage, OutgoingMessage } from 'http';
-
-import request from 'request';
+import { createApolloFetch } from 'apollo-fetch';
+import { AuthenticationError, Config, gql } from 'apollo-server-core';
+import {
+  createServerInfo,
+  NODE_MAJOR_VERSION,
+  testApolloServer
+} from 'apollo-server-integration-testsuite';
+import fastify, {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest
+} from 'fastify';
 import FormData from 'form-data';
 import fs from 'fs';
-import { createApolloFetch } from 'apollo-fetch';
-
-import { gql, AuthenticationError, Config } from 'apollo-server-core';
+import http from 'http';
+import request from 'request';
 import { ApolloServer, ServerRegistration } from '../ApolloServer';
-
-import {
-  NODE_MAJOR_VERSION,
-  testApolloServer,
-  createServerInfo,
-} from 'apollo-server-integration-testsuite';
 
 const typeDefs = gql`
   type Query {
@@ -37,7 +36,7 @@ describe('apollo-server-fastify', () => {
   let app: FastifyInstance;
 
   testApolloServer(
-    async options => {
+    async (options) => {
       server = new ApolloServer(options);
       app = fastify();
       app.register(server.createHandler());
@@ -46,7 +45,7 @@ describe('apollo-server-fastify', () => {
     },
     async () => {
       if (server) await server.stop();
-      if (app) await new Promise(resolve => app.close(() => resolve()));
+      if (app) await new Promise((resolve) => app.close(() => resolve()));
       if (httpServer && httpServer.listening) await httpServer.close();
     },
   );
@@ -64,7 +63,10 @@ describe('apollo-server-fastify', () => {
     options: Partial<ServerRegistration> = {},
     mockDecorators: boolean = false,
   ) {
-    server = new ApolloServer({ stopOnTerminationSignals: false, ...serverOptions });
+    server = new ApolloServer({
+      stopOnTerminationSignals: false,
+      ...serverOptions,
+    });
     app = fastify();
 
     if (mockDecorators) {
@@ -83,7 +85,7 @@ describe('apollo-server-fastify', () => {
 
   afterEach(async () => {
     if (server) await server.stop();
-    if (app) await new Promise(resolve => app.close(() => resolve()));
+    if (app) await new Promise((resolve) => app.close(() => resolve()));
     if (httpServer) await httpServer.close();
   });
 
@@ -96,10 +98,10 @@ describe('apollo-server-fastify', () => {
   describe('createGraphQLServerOptions', () => {
     it('provides FastifyRequest and FastifyReply to ContextFunction', async () => {
       interface ContextArgs {
-        request: FastifyRequest<IncomingMessage> & {
+        request: FastifyRequest & {
           requestDecorator: () => any;
         };
-        reply: FastifyReply<OutgoingMessage> & { replyDecorator: () => any };
+        reply: FastifyReply & { replyDecorator: () => any };
       }
 
       const context = ({ request, reply }: ContextArgs) => {

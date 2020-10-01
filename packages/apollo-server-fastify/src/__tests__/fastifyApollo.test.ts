@@ -15,7 +15,7 @@ async function createApp(options: CreateAppOptions = {}) {
   );
 
   app.register(server.createHandler());
-  await app.listen();
+  await app.listen({port: 5000});
 
   return app.server;
 }
